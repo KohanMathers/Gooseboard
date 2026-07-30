@@ -62,7 +62,9 @@ type NavSection struct {
 }
 
 type Panel struct {
+	ID       string
 	Title    string
+	Theme    string
 	Entities map[string]Entity
 	Pages    map[string]Page
 	Nav      []NavSection
