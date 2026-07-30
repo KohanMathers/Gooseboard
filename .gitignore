@@ -1,1 +1,4 @@
 dev/
+gooseboard
+!gooseboard/
+*.db
