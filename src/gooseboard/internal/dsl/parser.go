@@ -30,6 +30,16 @@ func (p *Parser) expect(k TokenKind) Token {
 	return t
 }
 
+func (p *Parser) expectIdent() Token {
+	if p.cur.Kind != TokIdent && p.cur.Kind != TokKeyword {
+		panic("expected identifier, got: " + p.cur.Value)
+	}
+	t := p.cur
+	t.Kind = TokIdent
+	p.advance()
+	return t
+}
+
 func (p *Parser) expectBool() bool {
 	switch p.cur.Kind {
 	case TokTrue:
@@ -118,7 +128,7 @@ func (p *Parser) parseImportPath() string {
 
 func (p *Parser) parseEntity() EntityNode {
 	p.expectKeyword("entity")
-	nameTok := p.expect(TokIdent)
+	nameTok := p.expectIdent()
 	entity := EntityNode{Name: nameTok.Value}
 	p.expect(TokLBrace)
 	for p.cur.Kind != TokRBrace {
@@ -137,7 +147,7 @@ func (p *Parser) parseEntity() EntityNode {
 
 func (p *Parser) parseField() FieldNode {
 	p.expectKeyword("field")
-	nameTok := p.expect(TokIdent)
+	nameTok := p.expectIdent()
 	field := FieldNode{Name: nameTok.Value}
 	field.Type, field.RefTo = p.parseFieldType()
 
@@ -161,17 +171,17 @@ func (p *Parser) parseFieldType() (typ string, refTo string) {
 	if p.isKeyword("ref") {
 		p.advance()
 		p.expect(TokLParen)
-		entTok := p.expect(TokIdent)
+		entTok := p.expectIdent()
 		p.expect(TokRParen)
 		return "ref", entTok.Value
 	}
-	typTok := p.expect(TokIdent)
+	typTok := p.expectIdent()
 	return typTok.Value, ""
 }
 
 func (p *Parser) parsePermission() PermissionNode {
 	p.expectKeyword("permission")
-	actionTok := p.expect(TokIdent)
+	actionTok := p.expectIdent()
 	p.expectKeyword("role")
 	roles := p.parseIdentListParen()
 	return PermissionNode{Action: actionTok.Value, Roles: roles}
@@ -181,7 +191,7 @@ func (p *Parser) parseIdentListParen() []string {
 	p.expect(TokLParen)
 	var items []string
 	for p.cur.Kind != TokRParen {
-		idTok := p.expect(TokIdent)
+		idTok := p.expectIdent()
 		items = append(items, idTok.Value)
 		if p.cur.Kind == TokComma {
 			p.advance()
@@ -195,7 +205,7 @@ func (p *Parser) parseValue() any {
 	switch {
 	case p.cur.Kind == TokSigil:
 		return p.parseSigil()
-	case p.cur.Kind == TokIdent:
+	case p.cur.Kind == TokIdent || p.cur.Kind == TokKeyword:
 		nameTok := p.cur
 		p.advance()
 		if p.cur.Kind == TokLParen {
@@ -212,7 +222,7 @@ func (p *Parser) parseSigil() SigilExpr {
 	path := []string{tok.Value}
 	for p.cur.Kind == TokDot {
 		p.advance()
-		idTok := p.expect(TokIdent)
+		idTok := p.expectIdent()
 		path = append(path, idTok.Value)
 	}
 	return SigilExpr{Path: path}
@@ -232,7 +242,7 @@ func (p *Parser) parseArgList() []Arg {
 }
 
 func (p *Parser) parseArg() Arg {
-	if p.cur.Kind == TokIdent && p.peek().Kind == TokColon {
+	if (p.cur.Kind == TokIdent || p.cur.Kind == TokKeyword) && p.peek().Kind == TokColon {
 		name := p.cur.Value
 		p.advance()
 		p.advance()
@@ -304,7 +314,7 @@ func (p *Parser) parsePage() PageNode {
 func (p *Parser) parseView() ViewNode {
 	p.expectKeyword("view")
 	p.expect(TokColon)
-	kindTok := p.expect(TokIdent)
+	kindTok := p.expectIdent()
 	view := ViewNode{Kind: kindTok.Value}
 
 	if p.cur.Kind == TokLParen {
@@ -353,11 +363,7 @@ func (p *Parser) parseTab() TabNode {
 }
 
 func (p *Parser) parseTarget() CallExpr {
-	if p.cur.Kind != TokIdent && p.cur.Kind != TokKeyword {
-		panic("expected call target, got: " + p.cur.Value)
-	}
-	nameTok := p.cur
-	p.advance()
+	nameTok := p.expectIdent()
 	return CallExpr{Name: nameTok.Value, Args: p.parseArgList()}
 }
 
@@ -365,7 +371,7 @@ func (p *Parser) parseIdentList() []string {
 	p.expect(TokLBracket)
 	var items []string
 	for p.cur.Kind != TokRBracket {
-		idTok := p.expect(TokIdent)
+		idTok := p.expectIdent()
 		items = append(items, idTok.Value)
 		if p.cur.Kind == TokComma {
 			p.advance()
@@ -393,8 +399,8 @@ func (p *Parser) parseNav() []NavSectionNode {
 			case TokString:
 				t := p.expect(TokString)
 				section.Pages = append(section.Pages, t.Value)
-			case TokIdent:
-				t := p.expect(TokIdent)
+			case TokIdent, TokKeyword:
+				t := p.expectIdent()
 				section.Pages = append(section.Pages, t.Value)
 			default:
 				panic("expected page name in nav section, got: " + p.cur.Value)
@@ -419,9 +425,9 @@ func (p *Parser) parseNav() []NavSectionNode {
 func (p *Parser) parseHook() HookNode {
 	p.expectKeyword("hook")
 	p.expectKeyword("on")
-	entityTok := p.expect(TokIdent)
+	entityTok := p.expectIdent()
 	p.expect(TokDot)
-	eventTok := p.expect(TokIdent)
+	eventTok := p.expectIdent()
 	hook := HookNode{Entity: entityTok.Value, Event: eventTok.Value}
 
 	p.expect(TokLBrace)

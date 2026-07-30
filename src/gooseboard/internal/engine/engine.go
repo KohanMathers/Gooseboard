@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"gooseboard/internal/schema"
 	"gooseboard/internal/store"
@@ -28,7 +29,24 @@ func (e *Engine) Router() *http.ServeMux {
 		mux.HandleFunc("/api/entities/"+entity, e.handleEntityCollection(entity))
 	}
 
+	for title, page := range e.Panel.Pages {
+		if page.Route == "" {
+			continue
+		}
+		mux.HandleFunc(muxPattern(page.Route), e.handlePageByTitle(title))
+	}
+
 	return mux
+}
+
+func muxPattern(route string) string {
+	segments := strings.Split(route, "/")
+	for i, seg := range segments {
+		if strings.HasPrefix(seg, ":") {
+			segments[i] = "{" + seg[1:] + "}"
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 func (e *Engine) handleNav(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +61,17 @@ func (e *Engine) handlePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(page)
+}
+
+func (e *Engine) handlePageByTitle(title string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		page, ok := e.Panel.Pages[title]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		json.NewEncoder(w).Encode(page)
+	}
 }
 
 func (e *Engine) handleEntityCollection(entity string) http.HandlerFunc {
